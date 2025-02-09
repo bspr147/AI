@@ -1,0 +1,12 @@
+langchain
+llama-cpp-python
+chromadb
+huggingface_hub
+pypdf
+tiktoken
+fastapi
+uvicorn
+streamlit
+langchain
+llama-cpp-python
+python-dotenv
