@@ -1,9 +1,19 @@
+import pdfplumber
 import os
 import streamlit as st
 from dotenv import load_dotenv
 from pdf_processor import store_pdf_text, search_pdf
 from langchain_groq import ChatGroq
 from tiktoken import get_encoding
+from sentence_transformers import SentenceTransformer
+import chromadb
+
+# Initialize the embedding model
+embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+# Initialize ChromaDB
+db = chromadb.PersistentClient(path="./pdf_data")
+collection = db.get_or_create_collection("pdf_documents")
 
 # Load environment variables
 load_dotenv()
@@ -31,18 +41,28 @@ def validate_token_count(text, max_tokens=6000):
     tokens = encoder.encode(text)
     return len(tokens) <= max_tokens
 
+# Function to extract text from a PDF file
+def extract_text_from_pdf(uploaded_file):
+    """Extract text from a PDF file using pdfplumber."""
+    text = ""
+    with pdfplumber.open(uploaded_file) as pdf:
+        for page in pdf.pages:
+            text += page.extract_text() + "\n"
+    return text
+
 # Streamlit UI
 st.title("📚 PDF Chatbot")
 st.subheader("Upload a PDF and ask questions or query directly using LLaMA.")
 
 # File upload section
-uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
+uploaded_files = st.file_uploader("Upload a PDF file", type=["pdf"], accept_multiple_files=True)
 
-if uploaded_file is not None:
-    # Extract and store the PDF content
-    pdf_text = uploaded_file.read().decode("utf-8", errors="ignore")
-    store_pdf_text(uploaded_file.name, pdf_text)
-    st.success(f"PDF '{uploaded_file.name}' uploaded and stored!")
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        # Extract and store the PDF content
+        pdf_text = extract_text_from_pdf(uploaded_file)
+        store_pdf_text(uploaded_file.name, pdf_text, embedding_model)
+        st.success(f"PDF '{uploaded_file.name}' uploaded and stored!")
 
 # Query input section
 user_query = st.text_input("Type your query here:")
@@ -81,3 +101,4 @@ with col2:
                 st.markdown(response)
         else:
             st.warning("Please enter a query before submitting.")
+
